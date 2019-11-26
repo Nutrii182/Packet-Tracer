@@ -19,7 +19,8 @@ typedef struct Arista{
 	struct Arista *sig;
 	struct Router *Orouter;
 	struct Router *Drouter;
-	struct PC *pc;
+	struct PC *Dpc;
+	struct PC *Opc;
 }Arista;
 
 int agregar_PC(PC **pc,Router *router);
@@ -28,7 +29,7 @@ int crear_arista(Router *router,PC *pc);
 void imprime_Aristas(Arista *arista);
 void imprime_Routers(Router *router);
 void imprime_PCs(PC *pc);
-Arista *busca_Arista(Arista *arista, int pc, int Orouter, int Drouter);
+Arista *busca_Arista(Arista *arista, int Opc, int Orouter, int Dpc, int Drouter);
 Router *busca_Router(Router *router, int id);
 PC *busca_PC(PC *pc, int id);
 
@@ -55,10 +56,14 @@ int main(){
 
 			case 1:{
 				agregar_Router(&router,pc);
+				if (router != NULL && pc != NULL)
+					crear_arista(router,pc);
 				break;
 			}
 			case 2:{
 				agregar_PC(&pc,router);
+				if (router != NULL && pc != NULL)
+					crear_arista(router,pc);
 				break;
 			}
 			case 3:{
@@ -118,11 +123,11 @@ int agregar_PC(PC **pc, Router *router){
 		return 0;
 
 	do{
-		nuevo->id = rand() % 101;
+		nuevo->id = rand() % 100 +1;
 		if (busca_PC(*(pc),nuevo->id) == NULL && busca_Router(router,nuevo->id) == NULL)
 			x++;
 	}while(x == 0);
-	nuevo->paquetes = rand() % 101;
+	nuevo->paquetes = rand() % 50 + 1;
 	nuevo->nAristas = 0;
 	nuevo->arista = NULL;
 	nuevo->sig = *pc;
@@ -140,7 +145,7 @@ int agregar_Router(Router **router, PC *pc){
 		return 0;
 
 	do{
-		nuevo->id = rand() % 101;
+		nuevo->id = rand() % 100 + 1;
 		if(busca_Router(*(router),nuevo->id) == NULL && busca_PC(pc,nuevo->id) == NULL)
 			x++;
 	}while(x == 0);
@@ -153,13 +158,12 @@ int agregar_Router(Router **router, PC *pc){
 
 int crear_arista(Router *router, PC *pc){
 
-	PC *Opc = NULL;
-	Arista *aux = NULL;
+	PC *Opc = NULL, *Dpc = NULL;
 	Router *Orouter = NULL, *Drouter = NULL;
 	int x=0,y=0;
 
 	do{
-		int origen = rand() % 101;
+		int origen = rand() % 100 + 1;
 		if(busca_PC(pc,origen) != NULL){
 			Opc = busca_PC(pc,origen);
 			y++;
@@ -172,13 +176,64 @@ int crear_arista(Router *router, PC *pc){
 	}while(y == 0);
 
 	do{
-		int destino = rand() % 101;
+		int destino = rand() % 100 + 1;
 		if(busca_Router(router, destino) != NULL){
 			Drouter = busca_Router(router, destino);
 			x++;
+		}else{
+			if(busca_PC(pc,destino) != NULL){
+				Dpc = busca_PC(pc,destino);
+				x++;
+			}
 		}
 	}while(x == 0);
 
+	if(Opc == NULL && Dpc == NULL){
+		Arista *aux = busca_Arista(Orouter->arista,0, Orouter->id,0, Drouter->id);
+		if(aux == NULL){
+			Arista *arista=(Arista*)malloc(sizeof(Arista));
+			arista->Opc = NULL;
+			arista->Orouter = Orouter;
+			arista->Dpc = NULL;
+			arista->Drouter = Drouter;
+			arista->peso = rand() % 100 + 1;
+			arista->sig = Orouter->arista;
+			Orouter->arista = arista;
+			Orouter->nAristas+=1;
+			return 1;
+		}
+	}else{
+		if(Opc == NULL && Drouter == NULL){
+			Arista *aux = busca_Arista(Orouter->arista,0, Orouter->id,Dpc->id ,0);
+			if(aux == NULL){
+				Arista *arista=(Arista*)malloc(sizeof(Arista));
+				arista->Opc = NULL;
+				arista->Orouter = Orouter;
+				arista->Dpc = Dpc;
+				arista->Drouter = NULL;
+				arista->peso = rand() % 100 + 1;
+				arista->sig = Orouter->arista;
+				Orouter->arista = arista;
+				Orouter->nAristas+=1;
+				return 1;
+			}
+		}else{
+			Arista *aux = busca_Arista(Opc->arista, Opc->id,0, 0, Drouter->id);
+			if(aux == NULL){
+				Arista *arista=(Arista*)malloc(sizeof(Arista));
+				arista->Opc = Opc;
+				arista->Orouter = NULL;
+				arista->Dpc = NULL;
+				arista->Drouter = NULL;
+				arista->peso = rand() % 100 + 1;
+				arista->sig = Opc->arista;
+				Opc->arista = arista;
+				Opc->nAristas+=1;
+				return 1;
+			}
+		}
+	}
+	return 0;
 }
 
 void imprime_Aristas(Arista *arista){
@@ -187,9 +242,14 @@ void imprime_Aristas(Arista *arista){
 		return;
 
 	printf("Peso: %d\n", arista->peso);
-	printf("Origen Router: %d\n", arista->Orouter->id);
-	printf("Destino Router%d\n", arista->Drouter->id);
-	printf("PC: %d\n", arista->pc->id);
+	if(arista->Orouter != NULL)
+		printf("Origen Router: %d\n", arista->Orouter->id);
+	if(arista->Drouter != NULL)
+		printf("Destino Router: %d\n", arista->Drouter->id);
+	if(arista->Opc != NULL)
+		printf("Origen PC: %d\n", arista->Opc->id);
+	if(arista->Dpc != NULL)
+		printf("Destino PC: %d\n", arista->Dpc->id);
 	return imprime_Aristas(arista->sig);
 }
 
@@ -216,22 +276,25 @@ void imprime_Routers(Router *router){
 	imprime_Routers(router->sig);
 }
 
-Arista *busca_Arista(Arista *arista, int pc, int Orouter, int Drouter){
+Arista *busca_Arista(Arista *arista, int Opc, int Orouter, int Dpc, int Drouter){
 
 	if(!arista)
 		return NULL;
 
-	if(arista->pc->id == pc && arista->Drouter->id == Drouter)
-		return arista;
-	else{
-		if(arista->Orouter->id == Orouter && arista->Drouter->id == Drouter)
+	if(Opc != 0){
+		if(arista->Opc->id == Opc && arista->Drouter->id == Drouter)
 			return arista;
-		else{
-			if(arista->Orouter->id == Orouter && arista->pc->id)
+	}else{
+		if(Dpc != 0){
+			if(arista->Orouter->id == Orouter && arista->Dpc->id == Dpc)
 				return arista;
+			else{
+				if(arista->Orouter->id == Orouter && arista->Drouter->id == Drouter)
+					return arista;
+			}
 		}
 	}
-	return busca_Arista(arista->sig,pc,Orouter,Drouter);
+	return busca_Arista(arista->sig,Opc,Dpc,Orouter,Drouter);
 }
 
 PC *busca_PC(PC *pc, int id){
